@@ -1,2 +1,2 @@
-# grasp-detection
+# Grasp detection in tensorflow
 
