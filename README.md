@@ -1,2 +1,1 @@
-# Grasp detection in tensorflow
-
+# Grasp detection using deep neural networks in tensorflow
