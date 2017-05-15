@@ -2,6 +2,7 @@
 #!/usr/bin/python
 
 import argparse
+import glob
 import os.path
 import time
 import sys
@@ -9,7 +10,7 @@ import numpy as np
 import tensorflow as tf
 
 FLAGS = None
-TRAIN_FILE = ''#glob
+TRAIN_FILE = '/root/dataset/imagenet_synsets/*/*.jpeg'#glob
 VALIDATION_FILE = ''
 '''
 label='n03'
@@ -52,12 +53,56 @@ def inputs(train, batch_size, num_epochs):
             min_after_dequeue=1000)
         return images, sparse_labels
 
+
+def inference()
+
+def training()
+
+
+
 def run_training():
     with tf.Graph().as_default():
         images, labels = inputs(train=True,
                                 batch_size=FLAGS.batch_size,
                                 num_epochs=FLAGS.num_epochs)
-        logits = inference
+        
+	y_hat = inference(images)
+	#loss = loss(logits, labels)
+	loss = tf.reduce_mean(tf.nn.softmax_entropy_with_logits(labels, y_hat)
+
+	train_op = training(loss, FLAGS.learning_rate)
+
+	init_op = tf.group(tf.global_variables_initializer(),
+			tf.local_variables_initializer())
+
+	sess = tf.Session()
+
+	sess.run(init_op)
+
+	coord = tf.train.Coordinator()
+	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+
+	try:
+		step = 0
+		while not coord.should_stop():
+			start_time = time.time()
+			_, loss_value = sess.run([train_op, loss])
+
+			duration = time.time() - start_time
+
+			if step % 100 == 0:
+				print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, 
+										duration)
+			step +=1
+	exept tf.errors.OutOfRangeError:
+		print('Done training for %d epochs, %d steps.' % (FLAGS.num_epochs, step))
+	finally:
+		coord.request_stop()
+
+	coord.join(threads)
+	sess.close()
+
+
 def main(_):
     run_taining()
     
