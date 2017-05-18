@@ -54,12 +54,15 @@ def inputs(train, batch_size, num_epochs):
         return images, sparse_labels
 
 
-def inference()
+def inference():
+    
 
-def training()
-
-
-
+def training(loss, learning_rate):
+    tf.summary.scalar('loss', loss)
+    optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+    train_op = optimizer.minimize(loss)
+    return train_op
+    
 def run_training():
     with tf.Graph().as_default():
         images, labels = inputs(train=True,
@@ -108,6 +111,12 @@ def main(_):
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--learning_rate,
+        type=float,
+        default=0.01,
+        help='Initial learning rate.'
+    )
     parser.add_argument(
         '--train_dir',
         type=str,
