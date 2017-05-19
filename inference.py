@@ -51,3 +51,5 @@ def inference(images):
     W_fc3 = weight_variable([512, 26])
     b_fc3 = bias_variable([26])
     output = tf.nn.relu(tf.matmul(h_fc2, W_fc3) + b_fc3)
+    
+    return output
