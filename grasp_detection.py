@@ -53,6 +53,7 @@ def inputs(train, batch_size, num_epochs):
             min_after_dequeue=1000)
         return images, sparse_labels
 
+<<<<<<< Updated upstream
 
 def inference():
     
@@ -63,11 +64,22 @@ def training(loss, learning_rate):
     train_op = optimizer.minimize(loss)
     return train_op
     
+=======
+def inference(images):
+    return logits
+
+def loss(logits, labels):
+    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
+        labels=labels, logits=logits)
+    return tf.reduce_mean(cross_entropy)
+
+>>>>>>> Stashed changes
 def run_training():
     with tf.Graph().as_default():
         images, labels = inputs(train=True,
                                 batch_size=FLAGS.batch_size,
                                 num_epochs=FLAGS.num_epochs)
+<<<<<<< Updated upstream
         
 	y_hat = inference(images)
 	#loss = loss(logits, labels)
@@ -106,6 +118,9 @@ def run_training():
 	sess.close()
 
 
+=======
+        logits = inference(images)
+>>>>>>> Stashed changes
 def main(_):
     run_taining()
     

@@ -41,3 +41,13 @@ def inference(images):
     b_fc1 = bias_variable([512])
     h_pool3_flat = tf.reshape(h_pool3, [-1, 7*7*256])
     h_fc1 = tf.nn.relu(tf.matmul(h_pool3_flat, W_fc1) + b_fc1)
+
+    # fc1 layer
+    W_fc2 = weight_variable([512, 512])
+    b_fc2 = bias_variable([512])
+    h_fc2 = tf.nn.relu(tf.matmul(h_fc1, W_fc1) + b_fc2)
+
+    # fc1 layer
+    W_fc3 = weight_variable([512, 26])
+    b_fc3 = bias_variable([26])
+    output = tf.nn.relu(tf.matmul(h_fc2, W_fc3) + b_fc3)
