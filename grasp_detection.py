@@ -10,8 +10,10 @@ import numpy as np
 import tensorflow as tf
 
 FLAGS = None
-TRAIN_FILE = '/root/dataset/imagenet_synsets/*/*.jpeg'#glob
-VALIDATION_FILE = ''
+#TRAIN_FILE = glob.glob("/root/imagenet-data/train*")
+TRAIN_FILE = 'train.tfrecords'
+#glob.glob("/home/iki/master_project/cgd/0?/pcd*r.png")
+VALIDATION_FILE = 'validation*'
 '''
 label='n03'
 labels = np.array(['n02', 'n03', 'n04'])
@@ -19,7 +21,7 @@ y = [label == i for i in labels]
 y=np.array(y)
 y=y.astype(int)
 print(y)
-'''
+
 labels = ['n02666624', 'n02860415', 'n02880940', 
           'n02883344', 'n02908217', 'n02960690',
           'n03003091', 'n03147509', 'n03261776',
@@ -29,7 +31,24 @@ labels = ['n02666624', 'n02860415', 'n02880940',
           'n03904909', 'n04148054', 'n04154938',
           'n04284002', 'n04303497', 'n04356056',
           'n04450749', 'n07607605']
+'''
 def read_and_decode(filename_queue):
+    print('ok')
+    reader = tf.TFRecordReader()
+    _, serialized_example = reader.read(filename_queue)
+    print('ok'*2)
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            'image_raw': tf.FixedLenFeature([], tf.string),
+            'label': tf.FixedLenFeature([], tf.int64),
+        })
+    print('ok'*3)
+    image = tf.decode_raw(features['image_raw'], tf.uint8)
+    image = tf.cast(image, tf.float32) * (1. / 255) - 0.5    
+    image.set_shape([None, None, 3])
+    label = tf.cast(features['label'], tf.int32)
+    '''
     #work out the labels
     reader = tf.WholeFileReader()
     key, value = reader.read(filename_queue)
@@ -37,20 +56,24 @@ def read_and_decode(filename_queue):
     image_raw = tf.image.decode_jpeg(value)
     image = tf.image.resize_images(image_raw, [224, 224])    
     return image, label
-    
+    '''
+    print('ok'*10)
+    return image, label
+
 def inputs(train, batch_size, num_epochs):
     if not num_epochs: num_epochs = None
-    filename = os.path.join(FLAGS.train_dir,
-                            TRAIN_FILE if train else VALIDATION_FILE)
-                            
+    filename = os.path.join(FLAGS.train_dir, TRAIN_FILE if train else VALIDATION_FILE)
+    print(len(filename))
     with tf.name_scope('input'):
         filename_queue = tf.train.string_input_producer(
             [filename], num_epochs=num_epochs)
+        print('ok'*6)
         image, label = read_and_decode(filename_queue)
         images, sparse_labels = tf.train.shuffle_batch(
             [image, label], batch_size=batch_size, num_threads=2,
             capacity=1000+3*batch_size,
             min_after_dequeue=1000)
+        print('ok'*5)
         return images, sparse_labels
 
 def training(loss, learning_rate):
@@ -73,35 +96,31 @@ def run_training():
                                 batch_size=FLAGS.batch_size,
                                 num_epochs=FLAGS.num_epochs)
         
-	logits = inference(images)
-	#loss = loss(logits, labels)
-	loss = tf.reduce_mean(tf.nn.softmax_entropy_with_logits(labels, y_hat)
-
-	train_op = training(loss, FLAGS.learning_rate)
-
-	init_op = tf.group(tf.global_variables_initializer(),
+        logits = inference(images)
+        #loss = loss(logits, labels)
+        loss = tf.reduce_mean(tf.nn.softmax_entropy_with_logits(labels, logits))
+        train_op = training(loss, FLAGS.learning_rate)
+        init_op = tf.group(tf.global_variables_initializer(),
 			tf.local_variables_initializer())
 
-	sess = tf.Session()
+        sess = tf.Session()
+        sess.run(init_op)
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-	sess.run(init_op)
-
-	coord = tf.train.Coordinator()
-	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-	try:
-		step = 0
-		while not coord.should_stop():
+        try:
+            step = 0
+            while not coord.should_stop():
 			start_time = time.time()
 			_, loss_value = sess.run([train_op, loss])
 
 			duration = time.time() - start_time
 
 			if step % 100 == 0:
-				print('Step %d: loss = %.2f (%.3f sec)' % (step, loss_value, 
+				print('Step %d: loss = %.2f (%.3f sec)') % (step, loss_value, 
 										duration)
 			step +=1
-	exept tf.errors.OutOfRangeError:
+	except tf.errors.OutOfRangeError:
 		print('Done training for %d epochs, %d steps.' % (FLAGS.num_epochs, step))
 	finally:
 		coord.request_stop()
@@ -110,12 +129,12 @@ def run_training():
 	sess.close()
 
 def main(_):
-    run_taining()
+    run_training()
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--learning_rate,
+        '--learning_rate',
         type=float,
         default=0.01,
         help='Initial learning rate.'
@@ -123,7 +142,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--train_dir',
         type=str,
-        default='/dataset/imagenet_synsets',
+        default='/root/imagenet-data/',
         help='Directory with training data.'
     )
     parser.add_argument(
@@ -138,5 +157,5 @@ if __name__ == '__main__':
         default=100,
         help='Batch size.'
     )
-    FLAGS, unparsed = parser.arse_known_args()
+    FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
