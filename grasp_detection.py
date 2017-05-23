@@ -8,12 +8,15 @@ import time
 import sys
 import numpy as np
 import tensorflow as tf
-
+import inference
 FLAGS = None
 #TRAIN_FILE = glob.glob("/root/imagenet-data/train*")
 TRAIN_FILE = 'train.tfrecords'
 #glob.glob("/home/iki/master_project/cgd/0?/pcd*r.png")
-VALIDATION_FILE = 'validation*'
+VALIDATION_FILE = 'validation.tfrecords'
+IMAGE_HEIGHT = 224
+IMAGE_WIDTH = 224
+
 '''
 label='n03'
 labels = np.array(['n02', 'n03', 'n04'])
@@ -42,22 +45,20 @@ def read_and_decode(filename_queue):
         features={
             'image_raw': tf.FixedLenFeature([], tf.string),
             'label': tf.FixedLenFeature([], tf.int64),
+            'height': tf.FixedLenFeature([], tf.int64),
+            'width': tf.FixedLenFeature([], tf.int64)
         })
     print('ok'*3)
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.cast(image, tf.float32) * (1. / 255) - 0.5    
-    image.set_shape([None, None, 3])
+    height = tf.cast(features['height'], tf.int32)
+    width = tf.cast(features['width'], tf.int32)
+    #image_shape = tf.stack([height, width, 3])
+    image_shape = tf.stack([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+    image = tf.reshape(image, image_shape)
+    print(image.get_shape())
+    #image.set_shape([None, None, 3])
     label = tf.cast(features['label'], tf.int32)
-    '''
-    #work out the labels
-    reader = tf.WholeFileReader()
-    key, value = reader.read(filename_queue)
-    label = key[31:40]
-    image_raw = tf.image.decode_jpeg(value)
-    image = tf.image.resize_images(image_raw, [224, 224])    
-    return image, label
-    '''
-    print('ok'*10)
     return image, label
 
 def inputs(train, batch_size, num_epochs):
@@ -81,9 +82,6 @@ def training(loss, learning_rate):
     optimizer = tf.train.GradientDescentOptimizer(learning_rate)
     train_op = optimizer.minimize(loss)
     return train_op
-    
-def inference(images):
-    return logits
 
 def loss(logits, labels):
     cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -96,7 +94,7 @@ def run_training():
                                 batch_size=FLAGS.batch_size,
                                 num_epochs=FLAGS.num_epochs)
         
-        logits = inference(images)
+        logits = inference.inference(images)
         #loss = loss(logits, labels)
         loss = tf.reduce_mean(tf.nn.softmax_entropy_with_logits(labels, logits))
         train_op = training(loss, FLAGS.learning_rate)
