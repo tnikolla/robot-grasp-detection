@@ -7,8 +7,8 @@ import os.path
 import time
 import sys
 import numpy as np
-import tensorflow as tf
 import inference
+import tensorflow as tf
 FLAGS = None
 #TRAIN_FILE = glob.glob("/root/imagenet-data/train*")
 TRAIN_FILE = 'train.tfrecords'
@@ -39,7 +39,6 @@ def read_and_decode(filename_queue):
     print('ok')
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
-    print('ok'*2)
     features = tf.parse_single_example(
         serialized_example,
         features={
@@ -48,7 +47,6 @@ def read_and_decode(filename_queue):
             'height': tf.FixedLenFeature([], tf.int64),
             'width': tf.FixedLenFeature([], tf.int64)
         })
-    print('ok'*3)
     image = tf.decode_raw(features['image_raw'], tf.uint8)
     image = tf.cast(image, tf.float32) * (1. / 255) - 0.5    
     height = tf.cast(features['height'], tf.int32)
@@ -68,13 +66,11 @@ def inputs(train, batch_size, num_epochs):
     with tf.name_scope('input'):
         filename_queue = tf.train.string_input_producer(
             [filename], num_epochs=num_epochs)
-        print('ok'*6)
         image, label = read_and_decode(filename_queue)
         images, sparse_labels = tf.train.shuffle_batch(
             [image, label], batch_size=batch_size, num_threads=2,
             capacity=1000+3*batch_size,
             min_after_dequeue=1000)
-        print('ok'*5)
         return images, sparse_labels
 
 def training(loss, learning_rate):
@@ -83,20 +79,19 @@ def training(loss, learning_rate):
     train_op = optimizer.minimize(loss)
     return train_op
 
-def loss(logits, labels):
-    cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(
-        labels=labels, logits=logits)
-    return tf.reduce_mean(cross_entropy)
-
 def run_training():
     with tf.Graph().as_default():
         images, labels = inputs(train=True,
                                 batch_size=FLAGS.batch_size,
                                 num_epochs=FLAGS.num_epochs)
         
+        labels = tf.one_hot(labels, 1000)
+        print("ok"*10)
+        print("images: {}".format(images.get_shape()))
+        print("labels: {}".format(labels.get_shape()[-1].value))        
         logits = inference.inference(images)
-        #loss = loss(logits, labels)
-        loss = tf.reduce_mean(tf.nn.softmax_entropy_with_logits(labels, logits))
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+            logits=logits, labels=labels))
         train_op = training(loss, FLAGS.learning_rate)
         init_op = tf.group(tf.global_variables_initializer(),
 			tf.local_variables_initializer())
@@ -109,22 +104,21 @@ def run_training():
         try:
             step = 0
             while not coord.should_stop():
-			start_time = time.time()
-			_, loss_value = sess.run([train_op, loss])
+                start_time = time.time()
+                _, loss_value = sess.run([train_op, loss])
 
-			duration = time.time() - start_time
+                duration = time.time() - start_time
 
-			if step % 100 == 0:
-				print('Step %d: loss = %.2f (%.3f sec)') % (step, loss_value, 
-										duration)
-			step +=1
-	except tf.errors.OutOfRangeError:
-		print('Done training for %d epochs, %d steps.' % (FLAGS.num_epochs, step))
-	finally:
-		coord.request_stop()
+                if step % 100 == 0:
+                    print('Step %d: loss = %.2f (%.3f sec)')%(step, loss_value, duration)
+            step +=1
+        except tf.errors.OutOfRangeError:
+            print('Done training for %d epochs, %d steps.' % (FLAGS.num_epochs, step))
+        finally:
+            coord.request_stop()
 
-	coord.join(threads)
-	sess.close()
+        coord.join(threads)
+        sess.close()
 
 def main(_):
     run_training()
@@ -146,7 +140,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_epochs',
         type=int,
-        default=2,
+        default=100,
         help='Number of epochs to run trainer.'
     )
     parser.add_argument(
