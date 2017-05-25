@@ -36,33 +36,24 @@ labels = ['n02666624', 'n02860415', 'n02880940',
           'n04450749', 'n07607605']
 '''
 def read_and_decode(filename_queue):
-    print('ok')
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)
     features = tf.parse_single_example(
         serialized_example,
         features={
             'image_raw': tf.FixedLenFeature([], tf.string),
-            'label': tf.FixedLenFeature([], tf.int64),
-            'height': tf.FixedLenFeature([], tf.int64),
-            'width': tf.FixedLenFeature([], tf.int64)
+            'label': tf.FixedLenFeature([], tf.int64)
         })
     image = tf.decode_raw(features['image_raw'], tf.uint8)
-    image = tf.cast(image, tf.float32) * (1. / 255) - 0.5    
-    height = tf.cast(features['height'], tf.int32)
-    width = tf.cast(features['width'], tf.int32)
-    #image_shape = tf.stack([height, width, 3])
+    image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
     image_shape = tf.stack([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
     image = tf.reshape(image, image_shape)
-    print(image.get_shape())
-    #image.set_shape([None, None, 3])
     label = tf.cast(features['label'], tf.int32)
     return image, label
 
 def inputs(train, batch_size, num_epochs):
     if not num_epochs: num_epochs = None
     filename = os.path.join(FLAGS.train_dir, TRAIN_FILE if train else VALIDATION_FILE)
-    print(len(filename))
     with tf.name_scope('input'):
         filename_queue = tf.train.string_input_producer(
             [filename], num_epochs=num_epochs)
@@ -86,7 +77,6 @@ def run_training():
                                 num_epochs=FLAGS.num_epochs)
         
         labels = tf.one_hot(labels, 1000)
-        print("ok"*10)
         print("images: {}".format(images.get_shape()))
         print("labels: {}".format(labels.get_shape()[-1].value))        
         logits = inference.inference(images)
@@ -103,12 +93,15 @@ def run_training():
 
         try:
             step = 0
+            print('o')
             while not coord.should_stop():
+                print('ok')
                 start_time = time.time()
+                print('oko')
                 _, loss_value = sess.run([train_op, loss])
-
+                print('okok')
                 duration = time.time() - start_time
-
+                print('okoko')
                 if step % 100 == 0:
                     print('Step %d: loss = %.2f (%.3f sec)')%(step, loss_value, duration)
             step +=1
