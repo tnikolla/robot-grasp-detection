@@ -11,7 +11,7 @@ import inference
 import tensorflow as tf
 FLAGS = None
 #TRAIN_FILE = glob.glob("/root/imagenet-data/train*")
-TRAIN_FILE = 'train.tfrecords'
+TRAIN_FILE = 'train-00000-of-01024'
 #glob.glob("/home/iki/master_project/cgd/0?/pcd*r.png")
 VALIDATION_FILE = 'validation.tfrecords'
 IMAGE_HEIGHT = 224
@@ -41,19 +41,21 @@ def read_and_decode(filename_queue):
     features = tf.parse_single_example(
         serialized_example,
         features={
-            'image_raw': tf.FixedLenFeature([], tf.string),
-            'label': tf.FixedLenFeature([], tf.int64)
+            'image/class/label': tf.FixedLenFeature([], tf.int64),
+            'image/encoded': tf.FixedLenFeature([], tf.string)
         })
-    image = tf.decode_raw(features['image_raw'], tf.uint8)
+    image = tf.decode_raw(features['image/encoded'], tf.uint8)
     image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
-    image_shape = tf.stack([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
-    image = tf.reshape(image, image_shape)
-    label = tf.cast(features['label'], tf.int32)
+    image = tf.image.resize_images(image, [224, 224, 3])
+    #image_shape = tf.stack([IMAGE_HEIGHT, IMAGE_WIDTH, 3])
+    #image = tf.reshape(image, image_shape)
+    label = tf.cast(features['image/class/label'], tf.int32)
     return image, label
 
 def inputs(train, batch_size, num_epochs):
     if not num_epochs: num_epochs = None
-    filename = os.path.join(FLAGS.train_dir, TRAIN_FILE if train else VALIDATION_FILE)
+    filename = os.path.join('/root/imagenet-data', TRAIN_FILE if train else VALIDATION_FILE)
+    #filename = TRAIN_FILE
     with tf.name_scope('input'):
         filename_queue = tf.train.string_input_producer(
             [filename], num_epochs=num_epochs)
