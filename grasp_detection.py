@@ -65,7 +65,7 @@ def inputs(train, batch_size, num_epochs):
         return images, sparse_labels
 
 def training(loss, learning_rate):
-    tf.summary.scalar('loss', loss)
+    #tf.summary.scalar('loss', loss)
     optimizer = tf.train.GradientDescentOptimizer(learning_rate)
     train_op = optimizer.minimize(loss)
     return train_op
