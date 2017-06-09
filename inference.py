@@ -21,7 +21,6 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 def inference(images):
-    #print(images.get_shape())
     # conv1 pool1 layer
     W_conv1 = weight_variable([5,5,3,64])
     b_conv1 = bias_variable([64])
