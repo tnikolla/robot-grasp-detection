@@ -11,7 +11,7 @@ import inference
 import inference_redmon
 import tensorflow as tf
 FLAGS = None
-TRAIN_FILE = '/root/imagenet-data/train-00033-of-01024'
+TRAIN_FILE = '/root/imagenet-data/train-00004-of-01024'
 VALIDATION_FILE = '/root/imagenet-data/validation-00127-of-00128'
 IMAGE_HEIGHT = 224
 IMAGE_WIDTH = 224
@@ -40,7 +40,7 @@ def inputs(train, batch_size, num_epochs):
     if not num_epochs: num_epochs = None
     data_files_ = data_files()
     filename_queue = tf.train.string_input_producer(
-        data_files_, num_epochs=num_epochs)
+        [VALIDATION_FILE], num_epochs=num_epochs)
     image, label = read_and_decode(filename_queue)
     images, sparse_labels = tf.train.shuffle_batch(
         [image, label], batch_size=batch_size, num_threads=4,
@@ -65,7 +65,7 @@ def run_training():
         global_step=tf.Variable(0,trainable=False)
         lr=tf.train.exponential_decay(FLAGS.learning_rate, 
                                       global_step=global_step, 
-                                      decay_steps=1600000,
+                                      decay_steps=800000,
                                       decay_rate=0.16,
                                       staircase=True)
         train_op = tf.train.GradientDescentOptimizer(lr).minimize(loss,global_step=global_step)
@@ -91,7 +91,7 @@ def run_training():
                 #    [loss, correct_pred, accuracy,  merged_summary_op])
                 summary_writer.add_summary(summary, step*FLAGS.batch_size)
                 duration = time.time() - start_batch
-                if step % 50 == 0:
+                if step % 10 == 0:
                     print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
                         step, loss_value, acc, duration)
                 step +=1
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--learning_rate',
         type=float,
-        default=0.01,
+        default=0.001,
         help='Initial learning rate.'
     )
     parser.add_argument(

@@ -26,7 +26,7 @@ def inference(images):
     b1 = bias_variable([64])
     h1 = tf.nn.relu(conv2d_s2(images, w1)+b1)
     h1_pool = max_pool_2x2(h1)
-    print("h1_pool: {}".format(h1_pool.get_shape()))
+    #print("h1_pool: {}".format(h1_pool.get_shape()))
     
     w2 = weight_variable([3,3,64,128])
     b2 = bias_variable([128])
@@ -39,14 +39,14 @@ def inference(images):
     h3 = tf.nn.relu(conv2d_s1(h2_pool,w3)+b3)
     #print("h3: {}".format(h3.get_shape()))
     
-    #w4 = weight_variable([3,3,128,128])
-    #b4 = bias_variable([128])
-    #h4 = tf.nn.relu(conv2d_s1(h3,w4)+b4)
+    w4 = weight_variable([3,3,128,128])
+    b4 = bias_variable([128])
+    h4 = tf.nn.relu(conv2d_s1(h3,w4)+b4)
     #print("h4: {}".format(h4.get_shape()))
     
     w5 = weight_variable([3,3,128,256])
     b5 = bias_variable([256])
-    h5 = tf.nn.relu(conv2d_s1(h3,w5)+b5)
+    h5 = tf.nn.relu(conv2d_s1(h4,w5)+b5)
     h5_pool = max_pool_2x2(h5)
     #print("h5_pool: {}".format(h5_pool.get_shape()))
     
@@ -63,7 +63,7 @@ def inference(images):
     
     w_output = weight_variable([512,1000])
     b_output = bias_variable([1000])
-    output = tf.nn.relu(tf.matmul(h_fc2,w_output)+b_output)
+    output = tf.matmul(h_fc2,w_output)+b_output
     #print("output: {}".format(output.get_shape()))
     
     return output

@@ -57,7 +57,7 @@ def inference(images):
     # fc1 layer
     W_fc3 = weight_variable([512, 1000])
     b_fc3 = bias_variable([1000])
-    output = tf.nn.relu(tf.matmul(h_fc2, W_fc3) + b_fc3)
+    output = tf.matmul(h_fc2, W_fc3) + b_fc3
     #print("output: {}".format(output.get_shape()))
     
     return output
