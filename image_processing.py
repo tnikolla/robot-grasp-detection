@@ -11,14 +11,6 @@ tf.app.flags.DEFINE_integer('num_preprocess_threads', 8,
                             """Number of preprocessing threads per tower. """
                             """Please make this a multiple of 4.""")
 
-def distorted_inputs(data_files, batch_size=None, num_preprocess_threads=None):
-    with tf.device('/cpu:0:'):
-        images, labels = batch_inputs(
-            data_files, batch_size, train=True,
-            num_preprocess_threads=num_preprocess_threads,
-            num_readers=FLAGS.num_readers)
-    return images, labels
-
 def parse_example_proto(examples_serialized):
     feature_map={
         'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
@@ -114,4 +106,10 @@ def batch_inputs(data_files, batch_size, train, num_preprocess_threads=None,
     
     return images, tf.reshape(label_index_batch, [batch_size])
 
-
+def distorted_inputs(data_files, batch_size=None, num_preprocess_threads=None):
+    with tf.device('/cpu:0:'):
+        images, labels = batch_inputs(
+            data_files, batch_size, train=True,
+            num_preprocess_threads=num_preprocess_threads,
+            num_readers=FLAGS.num_readers)
+    return images, labels

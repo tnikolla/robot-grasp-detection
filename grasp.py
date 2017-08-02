@@ -1,23 +1,79 @@
 #!/usr/local/bin/python
 ''' Training a network on Imagenet.
 '''
+import argparse
 import os.path
+import glob
 import tensorflow as tf
+import inference
+import inference_redmon
+import time
 
+def data_files():
+    tf_record_pattern = os.path.join(FLAGS.data_dir, '%s-*' % 'train')
+    data_files = tf.gfile.Glob(tf_record_pattern)
+    return data_files
 
-tf_record_pattern = os.path.join(FLAGS.data_dir, '%s-*' % 'train')
-data_files = tf.gfile.Glob(tf_record_pattern)
+def run_training():
+    data_files = data_files()
+    images, labels = distorted_inputs(data_files, FLAGS.batch_size)
+    logits = inference_redmon.inference(images)
+    loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+        logits=logits, labels=labels))
+    tf.summary.scalar('loss', loss)
+    correct_pred = tf.equal(tf.arg_max(logits,1), tf.argmax(labels,1))
+    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+    tf.summary.scalar('accuracy', accuracy)
+    merged_summary_op = tf.summary.merge_all()
+    glogal_step = tf.Variable(0, trainable=False)
+    lr=tf.train.exponential_decay(FLAGS.learning_rate, 
+                                  global_step=global_step, 
+                                  decay_steps=800000,
+                                  decay_rate=0.16,
+                                  staircase=True)
+    train_op = tf.train.GradientOptimizer(lr).minimize(loss, global_step=global_step)
+    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+    saver = tf.train.Saver()
+    sess = tf.Session()
+    sess.run(init_op)
+    summary_writer = tf.summary.FileWriter(FLAGS.log_dir)
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+    #restore model
+    #saver.restore(sess, FLAGS.model_path)
+    try:
+        step = 0
+        start_time = time.time()
+        while not coord.should_stop():
+            start_batch = time.time()
+            #train                
+            _, loss_value, pred, acc, summary = sess.run(
+            [train_op, loss, correct_pred, accuracy,  merged_summary_op])
+            #evaluate
+            #loss_value, pred, acc, summary = sess.run(
+            #    [loss, correct_pred, accuracy,  merged_summary_op])
+            summary_writer.add_summary(summary, step*FLAGS.batch_size)
+            duration = time.time() - start_batch
+            if step % 10 == 0:
+                print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
+                step, loss_value, acc, duration)
+            step +=1
+    except tf.errors.OutOfRangeError:
+        print('Done training for %d epochs, %d steps, %.1f min.' % (FLAGS.num_epochs, step, (time.time()-start_time)/60))
+    finally:
+        coord.request_stop()
 
+    saver.save(sess, FLAGS.model_path)
+    print('Model saved in: %s' % FLAGS.model_path)
+    #print('Evaluated from restored variables from: %s' % FLAGS.model_path)
+    coord.join(threads)
+    sess.close()
 
-
+def main(_):
+    run_training()
+    
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--train_dir',
-        type=str,
-        default='/root/imagenet-data',
-        help='Imagenet dataset.'
-    )
     parser.add_argument(
         '--learning_rate',
         type=float,
@@ -25,7 +81,7 @@ if __name__ == '__main__':
         help='Initial learning rate.'
     )
     parser.add_argument(
-        '--train_dir',
+        '--data_dir',
         type=str,
         default='/root/imagenet-data/',
         help='Directory with training data.'
@@ -33,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_epochs',
         type=int,
-        default=10,
+        default=2,
         help='Number of epochs to run trainer.'
     )
     parser.add_argument(
@@ -43,10 +99,16 @@ if __name__ == '__main__':
         help='Batch size.'
     )
     parser.add_argument(
-        '--logdir',
+        '--log_dir',
         type=str,
         default='/tmp/tf/exp',
-        help='Tensorboard logdir.'
+        help='Tensorboard log_dir.'
+    )
+    parser.add_argument(
+        '--model_path',
+        type=str,
+        default='/tmp/model/model.ckpt',
+        help='Variables for the model.'
     )
     FLAGS, unparsed = parser.parse_known_args()
     tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
