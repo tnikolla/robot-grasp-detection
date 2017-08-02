@@ -1,1 +1,0 @@
-Step 300000 | loss = 4.06 | accuracy = 0.23 (0.186 sec/batch)
