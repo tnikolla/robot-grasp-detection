@@ -1,13 +1,20 @@
 #!/usr/local/bin/python
 ''' Training a network on Imagenet.
 '''
+import sys
 import argparse
 import os.path
 import glob
 import tensorflow as tf
+import image_processing
 import inference
 import inference_redmon
 import time
+
+TRAIN_FILE = '/root/imagenet-data/train-00004-of-01024'
+VALIDATION_FILE = '/root/imagenet-data/validation-00127-of-00128'
+#IMAGE_HEIGHT = 224
+#IMAGE_WIDTH = 224
 
 def data_files():
     tf_record_pattern = os.path.join(FLAGS.data_dir, '%s-*' % 'train')
@@ -15,8 +22,11 @@ def data_files():
     return data_files
 
 def run_training():
-    data_files = data_files()
-    images, labels = distorted_inputs(data_files, FLAGS.batch_size)
+    data_files_ = TRAIN_FILE
+    #data_files_ = data_files()
+    images, labels = image_processing.distorted_inputs(
+        [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
+    labels = tf.one_hot(labels, 1000)   
     logits = inference_redmon.inference(images)
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
         logits=logits, labels=labels))
@@ -25,13 +35,13 @@ def run_training():
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
     tf.summary.scalar('accuracy', accuracy)
     merged_summary_op = tf.summary.merge_all()
-    glogal_step = tf.Variable(0, trainable=False)
+    global_step = tf.Variable(0, trainable=False)
     lr=tf.train.exponential_decay(FLAGS.learning_rate, 
                                   global_step=global_step, 
                                   decay_steps=800000,
                                   decay_rate=0.16,
                                   staircase=True)
-    train_op = tf.train.GradientOptimizer(lr).minimize(loss, global_step=global_step)
+    train_op = tf.train.GradientDescentOptimizer(lr).minimize(loss, global_step=global_step)
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     saver = tf.train.Saver()
     sess = tf.Session()
@@ -47,24 +57,27 @@ def run_training():
         while not coord.should_stop():
             start_batch = time.time()
             #train                
-            _, loss_value, pred, acc, summary = sess.run(
-            [train_op, loss, correct_pred, accuracy,  merged_summary_op])
+            _, loss_value, pred, acc = sess.run(
+                [train_op, loss, correct_pred, accuracy])
+            duration = time.time() - start_batch
             #evaluate
             #loss_value, pred, acc, summary = sess.run(
             #    [loss, correct_pred, accuracy,  merged_summary_op])
-            summary_writer.add_summary(summary, step*FLAGS.batch_size)
-            duration = time.time() - start_batch
-            if step % 10 == 0:
+            if step % 10 == 0:             
                 print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
                 step, loss_value, acc, duration)
+            if step % 100 == 0:
+                summary = sess.run(merged_summary_op)
+                summary_writer.add_summary(summary, step*FLAGS.batch_size)
+            if step % 5000 == 0:
+                saver.save(sess, FLAGS.model_path)
+                                
             step +=1
     except tf.errors.OutOfRangeError:
         print('Done training for %d epochs, %d steps, %.1f min.' % (FLAGS.num_epochs, step, (time.time()-start_time)/60))
     finally:
         coord.request_stop()
 
-    saver.save(sess, FLAGS.model_path)
-    print('Model saved in: %s' % FLAGS.model_path)
     #print('Evaluated from restored variables from: %s' % FLAGS.model_path)
     coord.join(threads)
     sess.close()
@@ -77,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--learning_rate',
         type=float,
-        default=0.001,
+        default=0.01,
         help='Initial learning rate.'
     )
     parser.add_argument(
@@ -89,7 +102,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--num_epochs',
         type=int,
-        default=2,
+        default=None,
         help='Number of epochs to run trainer.'
     )
     parser.add_argument(
