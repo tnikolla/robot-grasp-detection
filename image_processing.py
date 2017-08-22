@@ -3,16 +3,18 @@ import numpy as np
 
 FLAGS = tf.app.flags.FLAGS
 
-#tf.app.flags.DEFINE_integer('batch_size', 32,
-#                            """Number of images to process in a batch.""")
 tf.app.flags.DEFINE_integer('image_size', 224,
                             """Provide square images of this size.""")
 tf.app.flags.DEFINE_integer('num_preprocess_threads', 4,
                             """Number of preprocessing threads per tower. """
                             """Please make this a multiple of 4.""")
-tf.app.flags.DEFINE_integer('num_readers', 8,
+tf.app.flags.DEFINE_integer('num_readers', 4,
                             """Number of parallel readers during train.""")
-
+tf.app.flags.DEFINE_integer('input_queue_memory_factor', 4,
+                            """Size of the queue of preprocessed images. """
+                            """Default is ideal but try smaller values, e.g. """
+                            """4, 2 or 1, if host memory is constrained. See """
+                            """comments in code for more details.""")
 def parse_example_proto(examples_serialized):
     feature_map={
         'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
@@ -26,6 +28,14 @@ def parse_example_proto(examples_serialized):
     label = tf.cast(features['image/class/label'], dtype=tf.int32)
     return features['image/encoded'], label
 
+def eval_image(image, height, width):
+    image = tf.image.central_crop(image, central_fraction=0.875)
+    image = tf.expand_dims(image, 0)
+    image = tf.image.resize_bilinear(image, [height, width],
+                                     align_corners=False)
+    image = tf.squeeze(image, [0])
+    return image
+   
 def distort_color(image, thread_id):
     color_ordering = thread_id % 2
     if color_ordering == 0:
@@ -42,11 +52,6 @@ def distort_color(image, thread_id):
     return image
 
 def distort_image(image, height, width, thread_id):
-    #begin = [height,width]-np.random.randint(10, 2)
-    #begin = np.append(begin, 0)
-    #size = [height-10,width-10,3]
-    #distorted_image = tf.slice(image, begin, size)
-    #distorted_image = tf.image.random_flip_left_right(distorted_image)
     distorted_image = tf.image.random_flip_left_right(image)
     distorted_image = distort_color(distorted_image, thread_id)
     return distorted_image
@@ -65,23 +70,20 @@ def image_preprocessing(image_buffer, train, thread_id=0):
     image = tf.multiply(image, 2.0)
     return image
 
-#num_readers issue
-def batch_inputs(data_files, num_epochs, batch_size=None, train=True, num_preprocess_threads=None,
-                 num_readers=1):
+def batch_inputs(data_files, train, num_epochs, batch_size,
+                 num_preprocess_threads, num_readers):
     if train:
         filename_queue = tf.train.string_input_producer(data_files,
                                                         num_epochs,
                                                         shuffle=True,
                                                         capacity=16)
     else:
-        filename_queue = tf.train.string_input_producer(data_files,
+        filename_queue = tf.train.string_input_producer(ata_files,
                                                         shuffle=False,
                                                         capacity=1)
     
     examples_per_shard = 1024
-    #input_queue_memory_factor = 16 works well (inception people)
-    min_queue_examples = examples_per_shard * 16
-    #num_readers issue
+    min_queue_examples = examples_per_shard * FLAGS.input_queue_memory_factor
     if train:
         examples_queue = tf.RandomShuffleQueue(
             capacity=min_queue_examples+3*batch_size,
@@ -91,8 +93,19 @@ def batch_inputs(data_files, num_epochs, batch_size=None, train=True, num_prepro
         examples_queue = tf.FIFOQueue(
             capacity=examples_per_shard + 3 * batch_size,
             dtypes=[tf.string])
-    reader = tf.TFRecordReader()
-    _, examples_serialized = reader.read(filename_queue)
+
+    if num_readers > 1:
+        enqueue_ops = []
+        for _ in range(num_readers):
+            reader = tf.TFRecordReader()
+            _, value = reader.read(filename_queue)
+            enqueue_ops.append(examples_queue.enqueue([value]))
+        tf.train.queue_runner.add_queue_runner(
+            tf.train.queue_runner.QueueRunner(examples_queue,enqueue_ops))
+        examples_serialized = examples_queue.dequeue()
+    else:
+        reader = tf.TFRecordReader()
+        _, examples_serialized = reader.read(filename_queue)
     
     #check how this works
     images_and_labels=[]
@@ -115,10 +128,18 @@ def batch_inputs(data_files, num_epochs, batch_size=None, train=True, num_prepro
     
     return images, tf.reshape(label_index_batch, [batch_size])
 
-def distorted_inputs(data_files, num_epochs, batch_size=None, num_preprocess_threads=FLAGS.num_preprocess_threads):
+def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
     with tf.device('/cpu:0'):
         images, labels = batch_inputs(
-            data_files, num_epochs, batch_size, train=True,
-            num_preprocess_threads=num_preprocess_threads,
+            data_files, train, num_epochs, batch_size,
+            num_preprocess_threads=FLAGS.num_preprocess_threads,
             num_readers=FLAGS.num_readers)
+    return images, labels
+
+def inputs(data_files, batch_size, train=False, num_epochs=None):
+    with tf.device('/cpu:o'):
+        images, labels = batch_inputs(
+            data_files, train, num_epochs, batch_size,
+            num_preprocess_threads=FLAGS.num_preprocess_threads,
+            num_readers=1)
     return images, labels
