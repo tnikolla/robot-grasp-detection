@@ -11,7 +11,7 @@ from inference import inference
 import time
 
 TRAIN_FILE = '/root/imagenet-data/train-00001-of-01024'
-VALIDATION_FILE = '/root/imagenet-data/validation-00001-of-00128'
+VALIDATION_FILE = '/root/imagenet-data/validation-00004-of-00128'
 
 def data_files():
     tf_record_pattern = os.path.join(FLAGS.data_dir, '%s-*' % FLAGS.train)

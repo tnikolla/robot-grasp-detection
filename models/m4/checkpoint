@@ -1,2 +1,0 @@
-model_checkpoint_path: "/root/grasp/grasp-detection/models/m4/model4.ckpt"
-all_model_checkpoint_paths: "/root/grasp/grasp-detection/models/m4/model4.ckpt"
