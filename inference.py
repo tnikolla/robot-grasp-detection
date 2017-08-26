@@ -3,14 +3,6 @@ Inference model for grasping
 '''
 import tensorflow as tf
 
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
-
-def bias_variable(shape):
-    initial = tf.constant(0.1, shape=shape)
-    return tf.Variable(initial)
-
 def conv2d_s2(x, W):
     return tf.nn.conv2d(x, W, strides=[1,2,2,1], padding='SAME')
 
@@ -21,43 +13,40 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 def inference(images):
-    # conv1 pool1 layer
-    W_conv1 = weight_variable([5,5,3,64])
-    b_conv1 = bias_variable([64])
-    h_conv1 = tf.nn.relu(conv2d_s2(images, W_conv1) + b_conv1)
-    h_pool1 = max_pool_2x2(h_conv1)
-    #print(h_pool1.get_shape())
+    w1 = tf.get_variable('w1', shape=[5,5,3,64])
+    b1 = tf.get_variable('b1', initializer=tf.constant(0.1, shape=[64]))
+    h1 = tf.nn.relu(conv2d_s2(images, w1)+b1)
+    h1_pool = max_pool_2x2(h1)
     
-    # conv2 pool layer
-    W_conv2 = weight_variable([3,3,64,128])
-    b_conv2 = bias_variable([128])
-    h_conv2 = tf.nn.relu(conv2d_s2(h_pool1, W_conv2) + b_conv2)
-    h_pool2 = max_pool_2x2(h_conv2)
-    #print(h_pool2.get_shape())
+    w2 = tf.get_variable('w2', [3,3,64,128])
+    b2 = tf.get_variable('b2', initializer=tf.constant(0.1, shape=[128]))
+    h2 = tf.nn.relu(conv2d_s2(h1_pool,w2)+b2)
+    h2_pool = max_pool_2x2(h2)
+
+    w3 = tf.get_variable('w3', [3,3,128,128])
+    b3 = tf.get_variable('b3', initializer=tf.constant(0.1, shape=[128]))
+    h3 = tf.nn.relu(conv2d_s1(h2_pool,w3)+b3)
     
-    # conv3 pool layer
-    W_conv3 = weight_variable([3,3,128,256])
-    b_conv3 = bias_variable([256])
-    h_conv3 = tf.nn.relu(conv2d_s1(h_pool2, W_conv3) + b_conv3)
-    h_pool3 = max_pool_2x2(h_conv3)
-    #print(h_pool3.get_shape())
-    # fc1 layer
-    W_fc1 = weight_variable([7*7*256, 512])
-    b_fc1 = bias_variable([512])
-    h_pool3_flat = tf.reshape(h_pool3, [-1, 7*7*256])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool3_flat, W_fc1) + b_fc1)
-    #print("h_fc1: {}".format(h_fc1.get_shape()))
+    w4 = tf.get_variable('w4', [3,3,128,128])
+    b4 = tf.get_variable('b4', initializer=tf.constant(0.1, shape=[128]))
+    h4 = tf.nn.relu(conv2d_s1(h3,w4)+b4)
 
-    # fc1 layer
-    W_fc2 = weight_variable([512, 512])
-    b_fc2 = bias_variable([512])
-    h_fc2 = tf.nn.relu(tf.matmul(h_fc1, W_fc2) + b_fc2)
-    #print("h_fc2: {}".format(h_fc2.get_shape()))
-
-    # fc1 layer
-    W_fc3 = weight_variable([512, 1000])
-    b_fc3 = bias_variable([1000])
-    output = tf.matmul(h_fc2, W_fc3) + b_fc3
-    #print("output: {}".format(output.get_shape()))
+    w5 = tf.get_variable('w5', [3,3,128,256])
+    b5 = tf.get_variable('b5', initializer=tf.constant(0.1, shape=[256]))
+    h5 = tf.nn.relu(conv2d_s1(h4,w5)+b5)
+    h5_pool = max_pool_2x2(h5)
+    
+    w_fc1 = tf.get_variable('w_fc1', [7*7*256,512])
+    b_fc1 = tf.get_variable('b_fc1', initializer=tf.constant(0.1, shape=[512]))
+    h5_flat = tf.reshape(h5_pool, [-1, 7*7*256])
+    h_fc1 = tf.nn.relu(tf.matmul(h5_flat,w_fc1)+b_fc1)
+    
+    w_fc2 = tf.get_variable('w_fc2', [512,512])
+    b_fc2 = tf.get_variable('b_fc2', initializer=tf.constant(0.1, shape=[512]))
+    h_fc2 = tf.nn.relu(tf.matmul(h_fc1, w_fc2)+b_fc2)
+    
+    w_output = tf.get_variable('w_output', [512, 1000])
+    b_output = tf.get_variable('b_output', [1000])
+    output = tf.matmul(h_fc2,w_output)+b_output
     
     return output
