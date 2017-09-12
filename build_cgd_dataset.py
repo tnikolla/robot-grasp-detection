@@ -4,7 +4,7 @@ import os
 import glob
 import numpy as np
 
-dataset = '/home/tomi/py/dataset'
+dataset = '/root/dataset/cornell_grasping_dataset'
 # If the directory of the current script lies where the out_dir will be
 #output_directory = os.path.dirname(os.path.abspath(__file__))
 output_filename = 'train-cgd'
@@ -52,20 +52,11 @@ def _convert_to_example(filename, bboxes, image_buffer, height, width):
     example = tf.train.Example(features=tf.train.Features(feature={
           'image/filename': _bytes_feature(filename),
           'image/encoded': _bytes_feature(image_buffer),
-          'image/height': _int64_feature(200),
+          'image/height': _int64_feature(height),
           'image/width': _int64_feature(width),
-          'bboxes': _float_feature(bboxes)}))
+          'bboxes': _floats_feature(bboxes)}))
     return example
     
-numpy_arr = np.array([0.,1.])
-
-def convert_to_example(filename, bboxes, image_buffer, height, width):
-    example = tf.train.Example(features=tf.train.Features(feature={
-          'bboxes': _floats_feature([0.,1.])
-          }))
-    print(example)
-    return example
-
 def main():
     
     output_file = os.path.join(dataset, output_filename)
@@ -82,10 +73,10 @@ def main():
     
     coder = ImageCoder()
     for filename in filenames:
-        bbox = filename[:32]+'cpos.txt'
+        bbox = filename[:49]+'cpos.txt'
         bboxes = _process_bboxes(bbox)
         image_buffer, height, width = _process_image(filename, coder)
-        example = convert_to_example(filename, bboxes, image_buffer, height, width)
+        example = _convert_to_example(filename, bboxes, image_buffer, height, width)
         writer.write(example.SerializeToString())
     
     writer.close()

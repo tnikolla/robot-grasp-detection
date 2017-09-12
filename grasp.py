@@ -20,11 +20,11 @@ def data_files():
 
 def run_training():
     tf.reset_default_graph()
-    data_files_ = TRAIN_FILE
+    #data_files_ = TRAIN_FILE
     #data_files_ = VALIDATION_FILE
-    #data_files_ = data_files()
+    data_files_ = data_files()
     images, labels = image_processing.distorted_inputs(
-        [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
+        data_files_, FLAGS.num_epochs, batch_size=FLAGS.batch_size)
     labels = tf.one_hot(labels, 1000)   
     logits = inference(images)
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
@@ -34,13 +34,7 @@ def run_training():
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
     tf.summary.scalar('accuracy', accuracy)
     merged_summary_op = tf.summary.merge_all()
-    global_step = tf.Variable(0, trainable=False)
-    lr=tf.train.exponential_decay(FLAGS.learning_rate, 
-                                  global_step=global_step, 
-                                  decay_steps=1200000,
-                                  decay_rate=0.8,
-                                  staircase=True)
-    train_op = tf.train.GradientDescentOptimizer(lr).minimize(loss, global_step=global_step)
+    train_op = tf.train.AdamOptimizer(epsilon=0.1).minimize(loss)
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     sess = tf.Session()
     sess.run(init_op)
@@ -48,20 +42,22 @@ def run_training():
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     #save/restore model
-    #saver = tf.train.Saver({'w1': w1, 'b1':b1, 'w2':w2, 'b2':b2, 'w3':w3, 'b3':b3, 'w4':w4, 'b4':b4, 'w5':w5, 'b5':b5, 'w_fc1':w_fc1, 'b_fc1':b_fc1, 'w_fc2':w_fc2, 'b_fc2':b_fc2})
-    saver = tf.train.Saver({'w1': w1})
-    #saver = tf.train.Saver()
+    d={}
+    l = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2', 'w_output', 'b_output']
+    for i in l:
+        d[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
+    saver = tf.train.Saver(d)
     #saver.restore(sess, FLAGS.model_path)
     try:
         step = 0
         start_time = time.time()
         while not coord.should_stop():
             start_batch = time.time()
-            #train                
+            #train             
             _, loss_value, pred, acc = sess.run(
                 [train_op, loss, correct_pred, accuracy])
             duration = time.time() - start_batch
-            if step % 10 == 0:             
+            if step % 50 == 0:             
                 print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
                 step, loss_value, acc, duration)
             if step % 500 == 0:

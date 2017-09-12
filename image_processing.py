@@ -5,12 +5,12 @@ FLAGS = tf.app.flags.FLAGS
 
 tf.app.flags.DEFINE_integer('image_size', 224,
                             """Provide square images of this size.""")
-tf.app.flags.DEFINE_integer('num_preprocess_threads', 8, 
+tf.app.flags.DEFINE_integer('num_preprocess_threads', 12, 
                             """Number of preprocessing threads per tower. """
                             """Please make this a multiple of 4.""")
-tf.app.flags.DEFINE_integer('num_readers', 4,
+tf.app.flags.DEFINE_integer('num_readers', 12,
                             """Number of parallel readers during train.""")
-tf.app.flags.DEFINE_integer('input_queue_memory_factor', 8,
+tf.app.flags.DEFINE_integer('input_queue_memory_factor', 12,
                             """Size of the queue of preprocessed images. """
                             """Default is ideal but try smaller values, e.g. """
                             """4, 2 or 1, if host memory is constrained. See """
@@ -62,10 +62,10 @@ def image_preprocessing(image_buffer, train, thread_id=0):
     image = tf.image.decode_jpeg(image_buffer, channels=3)
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
     image = tf.image.resize_images(image, [height,width])
-    #if train:
-    #    image = distort_image(image, height, width, thread_id)
-    #else:
-    #    image = eval_image(image, height, width)
+    if train:
+        image = distort_image(image, height, width, thread_id)
+    else:
+        image = eval_image(image, height, width)
     image = tf.subtract(image, 0.5)
     image = tf.multiply(image, 2.0)
     return image

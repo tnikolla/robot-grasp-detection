@@ -1,17 +1,16 @@
 import tensorflow as tf
 
-filename = '/home/tomi/py/dataset/train-cgd'
+#filename = '/home/tomi/py/dataset/train-cgd'
 #filename = '/home/tomi/grasp-detection/record'
-
+filename = '/root/dataset/cornell_grasping_dataset/train-cgd'
 record_iter = tf.python_io.tf_record_iterator(path=filename)
+example = tf.train.Example()
 l = []
-for string_record in record_iter:
-    example = tf.train.Example()
-    example.ParseFromString(string_record)
-    
-    name = example.features.feature['bboxes'].value.float_list[0]
-    print(name)    
-    break
-    l.append(name)
+for record in record_iter:
+    example.ParseFromString(record)
+    bboxes = example.features.feature['bboxes'].float_list.value[:]
+    height = example.features.feature['image/height'].int64_list.value[0]
+    width = example.features.feature['image/width'].int64_list.value[0]
+    l.append([bboxes,(height,width)])
 
 print(l)
