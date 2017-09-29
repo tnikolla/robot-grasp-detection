@@ -19,7 +19,7 @@ def data_files():
     return data_files
 
 def run_training():
-    tf.reset_default_graph()
+    #tf.reset_default_graph()
     #data_files_ = TRAIN_FILE
     #data_files_ = VALIDATION_FILE
     data_files_ = data_files()
@@ -47,7 +47,7 @@ def run_training():
     for i in l:
         d[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
     saver = tf.train.Saver(d)
-    #saver.restore(sess, FLAGS.model_path)
+    saver.restore(sess, FLAGS.model_path)
     try:
         step = 0
         start_time = time.time()
