@@ -7,6 +7,7 @@ import argparse
 import os.path
 import glob
 import tensorflow as tf
+import numpy as np
 import grasp_img_proc
 from grasp_inf import inference
 import time
@@ -19,6 +20,73 @@ def data_files():
     data_files = tf.gfile.Glob(tf_record_pattern)
     return data_files
 
+def convert_to_bbox(grasp):
+    x=grasp[0]
+    y=grasp[1]
+    h=grasp[4]
+    w=grasp[5]
+    theta = 0.5*np.arcsin(grasp[2])
+    w2c=0.5*w*np.cos(theta)
+    w2s=0.5*w*np.sin(theta)
+    h2c=0.5*h*np.cos(theta)
+    h2s=0.5*h*np.sin(theta)
+    x3=x +w2c -h2s    
+    x1=x -w2c +h2s
+    x2=x +w2c +h2s    
+    x4=x -w2c -h2s
+    y3=y +w2s +h2c   
+    y1=y -w2s -h2c   
+    y2=y +w2s -h2c   
+    y4=y -w2s +h2c   
+    return [x1,y1,x2,y2,x3,y3,x4,y4]
+
+def clip(subjectPolygon, clipPolygon):
+   def inside(p):
+      return(cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0])
+ 
+   def computeIntersection():
+      dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ]
+      dp = [ s[0] - e[0], s[1] - e[1] ]
+      n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0]
+      n2 = s[0] * e[1] - s[1] * e[0] 
+      n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0])
+      return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3]
+ 
+   outputList = subjectPolygon
+   cp1 = clipPolygon[-1]
+ 
+   for clipVertex in clipPolygon:
+      cp2 = clipVertex
+      inputList = outputList
+      outputList = []
+      s = inputList[-1]
+ 
+      for subjectVertex in inputList:
+         e = subjectVertex
+         if inside(e):
+            if not inside(s):
+               outputList.append(computeIntersection())
+            outputList.append(e)
+         elif inside(s):
+            outputList.append(computeIntersection())
+         s = e
+      cp1 = cp2
+   return(outputList)
+
+def PolygonArea(corners):
+    n = len(corners) # of corners
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += corners[i][0] * corners[j][1]
+        area -= corners[j][0] * corners[i][1]
+    area = abs(area) / 2.0
+    return area
+
+def intersection_over_union(bbox_hat, bbox):
+    intersection_polygon = clip(bbox_hat, bbox)
+    return PolygonArea(intersection_polygon)
+    
 def run_training():
     #tf.reset_default_graph()
     data_files_ = TRAIN_FILE
@@ -29,8 +97,9 @@ def run_training():
     images, bbox = grasp_img_proc.distorted_inputs(
         [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
     grasp = inference(images)
-    bbox_hat = convert_to_bbox(grasp)
-    iou = intersection_over_union(bbox_hat, bbox)
+    # tf.py_func
+    bbox_hat = tf.py_func(convert_to_bbox, [grasp], [tf.float32])
+    iou = tf.py_func(intersection_over_union, [bbox_hat, bbox], tf.float32)[0]
     loss = tf.negative(tf.log(iou)) #check this
     tf.summary.scalar('loss', loss)
     accuracy = tf.reduce_mean(iou)
@@ -56,8 +125,8 @@ def run_training():
         while not coord.should_stop():
             start_batch = time.time()
             #train             
-            _, loss_value, pred, acc = sess.run(
-                [train_op, loss, correct_pred, accuracy])
+            _, loss_value, acc = sess.run(
+                [train_op, loss, accuracy])
             duration = time.time() - start_batch
             if step % 10 == 0:             
                 print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(

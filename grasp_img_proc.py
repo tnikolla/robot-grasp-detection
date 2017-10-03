@@ -19,14 +19,12 @@ def parse_example_proto(examples_serialized):
     feature_map={
         'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
                                             default_value=''),
-        'image/class/label': tf.FixedLenFeature([1], dtype=tf.int64,
-                                                default_value=-1),
-        'image/class/text': tf.FixedLenFeature([], dtype=tf.string,
-                                               default_value='')
+        'bboxes': tf.FixedLenFeature([1], dtype=tf.float64,
+                                                default_value=-1)
         }
     features=tf.parse_single_example(examples_serialized, feature_map)
-    label = tf.cast(features['image/class/label'], dtype=tf.int32)
-    return features['image/encoded'], label
+    #label = tf.cast(features['image/class/label'], dtype=tf.int32)
+    return features['image/encoded'], features['bboxes']
 
 def eval_image(image, height, width):
     image = tf.image.central_crop(image, central_fraction=0.875)
