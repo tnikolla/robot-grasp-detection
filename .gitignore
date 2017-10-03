@@ -2,3 +2,6 @@
 *.out
 models/
 logdir/
+checkpoint
+*.ckpt.*
+

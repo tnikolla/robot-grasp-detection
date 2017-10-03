@@ -57,7 +57,7 @@ def run_training():
             _, loss_value, pred, acc = sess.run(
                 [train_op, loss, correct_pred, accuracy])
             duration = time.time() - start_batch
-            if step % 50 == 0:             
+            if step % 10 == 0:             
                 print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
                 step, loss_value, acc, duration)
             if step % 500 == 0:
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--batch_size',
         type=int,
-        default=32,
+        default=64,
         help='Batch size.'
     )
     parser.add_argument(
