@@ -20,72 +20,24 @@ def data_files():
     data_files = tf.gfile.Glob(tf_record_pattern)
     return data_files
 
-def convert_to_bbox(grasp):
-    x=grasp[0]
-    y=grasp[1]
-    h=grasp[4]
-    w=grasp[5]
-    theta = 0.5*np.arcsin(grasp[2])
-    w2c=0.5*w*np.cos(theta)
-    w2s=0.5*w*np.sin(theta)
-    h2c=0.5*h*np.cos(theta)
-    h2s=0.5*h*np.sin(theta)
-    x3=x +w2c -h2s    
-    x1=x -w2c +h2s
-    x2=x +w2c +h2s    
-    x4=x -w2c -h2s
-    y3=y +w2s +h2c   
-    y1=y -w2s -h2c   
-    y2=y +w2s -h2c   
-    y4=y -w2s +h2c   
-    return [x1,y1,x2,y2,x3,y3,x4,y4]
-
-def clip(subjectPolygon, clipPolygon):
-   def inside(p):
-      return(cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0])
- 
-   def computeIntersection():
-      dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ]
-      dp = [ s[0] - e[0], s[1] - e[1] ]
-      n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0]
-      n2 = s[0] * e[1] - s[1] * e[0] 
-      n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0])
-      return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3]
- 
-   outputList = subjectPolygon
-   cp1 = clipPolygon[-1]
- 
-   for clipVertex in clipPolygon:
-      cp2 = clipVertex
-      inputList = outputList
-      outputList = []
-      s = inputList[-1]
- 
-      for subjectVertex in inputList:
-         e = subjectVertex
-         if inside(e):
-            if not inside(s):
-               outputList.append(computeIntersection())
-            outputList.append(e)
-         elif inside(s):
-            outputList.append(computeIntersection())
-         s = e
-      cp1 = cp2
-   return(outputList)
-
-def PolygonArea(corners):
-    n = len(corners) # of corners
-    area = 0.0
-    for i in range(n):
-        j = (i + 1) % n
-        area += corners[i][0] * corners[j][1]
-        area -= corners[j][0] * corners[i][1]
-    area = abs(area) / 2.0
-    return area
-
-def intersection_over_union(bbox_hat, bbox):
-    intersection_polygon = clip(bbox_hat, bbox)
-    return PolygonArea(intersection_polygon)
+def intersection_over_union(bbox_pred, bbox):
+    # x are the coo. of the parallel rotated predicted bbox
+    x1 = [bbox_pred[0]-0.5*bbox_pred[5], bbox_pred[1]-0.5*bbox_pred[4]]
+    x2 = [bbox_pred[0]+0.5*bbox_pred[5], bbox_pred[1]-0.5*bbox_pred[4]]
+    x3 = [bbox_pred[0]+0.5*bbox_pred[5], bbox_pred[1]+0.5*bbox_pred[4]]
+    x4 = [bbox_pred[0]-0.5*bbox_pred[5], bbox_pred[1]+0.5*bbox_pred[4]]
+    # y are the coo. of the parallel rotated GT bbox
+    origin = [(bbox[5]-bbox[1])/2, (bbox[4]-bbox[0])/2]
+    w = tf.sqrt(tf.pow(bbox[2]-bbox[0],2) + tf.pow(bbox[3]-bbox[1],2))
+    h = tf.sqrt(tf.pow(bbox[6]-bbox[0],2) + tf.pow(bbox[7]-bbox[1],2))
+    y1 = [origin[0]-w/2, origin[1]-h/2]
+    y2 = [origin[0]+w/2, origin[1]-h/2]
+    y3 = [origin[0]-w/2, origin[1]+h/2]
+    y4 = [origin[0]+w/2, origin[1]+h/2]
+    intersection = tf.maximum(0, tf.minimum(x2[0], y2[0]) - tf.maximum(x1[0], y1[0])) * \
+                   tf.maximum(0, tf.minimum(x4[1], y4[1]) - tf.maximum(x4[1], y4[1]))
+    iou = intersection / (bbox_pred[5]*bbox_pred[4] + w*h - intersection)
+    return iou
     
 def run_training():
     #tf.reset_default_graph()
@@ -96,13 +48,12 @@ def run_training():
     #    [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)   
     images, bbox = grasp_img_proc.distorted_inputs(
         [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
-    grasp = inference(images)
-    # tf.py_func
-    bbox_hat = tf.py_func(convert_to_bbox, [grasp], [tf.float32])
-    #bbox_hat =convert_to_bbox(grasp)
-    #iou = intersection_over_union(bbox_hat, bbox)
-    iou = tf.py_func(intersection_over_union, [bbox_hat, bbox], tf.float32)[0]
-    loss = tf.negative(tf.log(iou)) #check this   
+    # bbox_pred is in the form: g = {x, y, cos(2*theta), sin(2*theta), h, w}    
+    bbox_pred = inference(images)
+    iou = intersection_over_union(bbox_pred, bbox)
+    # weight of the loss function    
+    const=tf.constant(value=5, dtype=tf.float32)
+    loss = tf.negative(tf.log(iou + 0.01)) + const*tf.pow(iou,2)  #check this   
     tf.summary.scalar('loss', loss)
     accuracy = tf.reduce_mean(iou)
     tf.summary.scalar('accuracy', accuracy)
