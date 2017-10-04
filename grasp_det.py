@@ -99,8 +99,10 @@ def run_training():
     grasp = inference(images)
     # tf.py_func
     bbox_hat = tf.py_func(convert_to_bbox, [grasp], [tf.float32])
+    #bbox_hat =convert_to_bbox(grasp)
+    #iou = intersection_over_union(bbox_hat, bbox)
     iou = tf.py_func(intersection_over_union, [bbox_hat, bbox], tf.float32)[0]
-    loss = tf.negative(tf.log(iou)) #check this
+    loss = tf.negative(tf.log(iou)) #check this   
     tf.summary.scalar('loss', loss)
     accuracy = tf.reduce_mean(iou)
     tf.summary.scalar('accuracy', accuracy)
@@ -114,7 +116,7 @@ def run_training():
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     #save/restore model
     d={}
-    l = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2', 'w_output', 'b_output']
+    l = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2']
     for i in l:
         d[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
     saver = tf.train.Saver(d)
@@ -134,8 +136,8 @@ def run_training():
             if step % 500 == 0:
                 summary = sess.run(merged_summary_op)
                 summary_writer.add_summary(summary, step*FLAGS.batch_size)
-            if step % 5000 == 0:
-                saver.save(sess, FLAGS.model_path)
+            #if step % 5000 == 0:
+            #    saver.save(sess, FLAGS.model_path)
                                 
             step +=1
     except tf.errors.OutOfRangeError:

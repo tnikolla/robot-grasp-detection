@@ -19,7 +19,7 @@ def parse_example_proto(examples_serialized):
     feature_map={
         'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
                                             default_value=''),
-        'bboxes': tf.FixedLenFeature([1], dtype=tf.float64,
+        'bboxes': tf.FixedLenFeature([1], dtype=tf.float32,
                                                 default_value=-1)
         }
     features=tf.parse_single_example(examples_serialized, feature_map)
