@@ -34,29 +34,39 @@ def intersection_over_union(bbox_pred, bbox):
     y2 = [origin[0]+w/2, origin[1]-h/2]
     y3 = [origin[0]-w/2, origin[1]+h/2]
     y4 = [origin[0]+w/2, origin[1]+h/2]
-    intersection = tf.maximum(0, tf.minimum(x2[0], y2[0]) - tf.maximum(x1[0], y1[0])) * \
-                   tf.maximum(0, tf.minimum(x4[1], y4[1]) - tf.maximum(x4[1], y4[1]))
+    intersection = tf.maximum(0., tf.minimum(x2[0], y2[0]) - tf.maximum(x1[0], y1[0])) * \
+                   tf.maximum(0., tf.minimum(x4[1], y4[1]) - tf.maximum(x4[1], y4[1]))
     iou = intersection / (bbox_pred[5]*bbox_pred[4] + w*h - intersection)
     return iou
-    
+
+def elem(tensor,element):
+    bs = FLAGS.batch_size
+    return tf.slice(tensor, [0,element], [bs,1])
+
+def bboxes_to_grasps(bboxes):
+    x = elem(bboxes, 5) / tf.constant(2.) # check this
+    y = elem(bboxes, 4) / tf.constant(2.)
+    tan = (elem(bboxes, 3) -elem(bboxes, 1)) / (elem(bboxes, 2) -elem(bboxes, 0))
+    h = tf.sqrt(tf.pow(elem(bboxes,6) -elem(bboxes,0), 2) +tf.pow(elem(bboxes, 7) -elem(bboxes, 1),2))
+    w = tf.sqrt(tf.pow(elem(bboxes,2) -elem(bboxes,0), 2) +tf.pow(elem(bboxes, 3) -elem(bboxes, 1),2))
+    return x, y, tan, h, w
+ 
 def run_training():
     #tf.reset_default_graph()
     data_files_ = TRAIN_FILE
     #data_files_ = VALIDATION_FILE
     #data_files_ = data_files()
-    #images, labels = image_processing.distorted_inputs(
-    #    [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)   
-    images, bbox = grasp_img_proc.distorted_inputs(
+    images, bboxes = grasp_img_proc.distorted_inputs(
         [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
-    # bbox_pred is in the form: g = {x, y, cos(2*theta), sin(2*theta), h, w}    
-    bbox_pred = inference(images)
-    iou = intersection_over_union(bbox_pred, bbox)
-    # weight of the loss function    
-    const=tf.constant(value=5, dtype=tf.float32)
-    loss = tf.negative(tf.log(iou + 0.01)) + const*tf.pow(iou,2)  #check this   
+    # grasp is in the form: g = {x, y, tan(theta), h, w}    
+    x, y, tan, h, w = bboxes_to_grasps(bboxes) # list
+    x_hat, y_hat, tan_hat, h_hat, w_hat = tf.unstack(inference(images), axis=1) # list
+    # tangent of 85 degree is 11 
+    tan_hat_confined = tf.minimum(11., tf.maximum(-11., tan_hat))
+    loss = tf.reduce_sum(tf.pow(x_hat -x, 2) +tf.pow(y_hat -y, 2) +tf.pow(tan_hat_confined - tan, 2))
     tf.summary.scalar('loss', loss)
-    accuracy = tf.reduce_mean(iou)
-    tf.summary.scalar('accuracy', accuracy)
+    #accuracy = theta# iou #tf.reduce_mean(iou)
+    #tf.summary.scalar('accuracy', accuracy)
     merged_summary_op = tf.summary.merge_all()
     train_op = tf.train.AdamOptimizer(epsilon=0.1).minimize(loss)
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -78,16 +88,16 @@ def run_training():
         while not coord.should_stop():
             start_batch = time.time()
             #train             
-            _, loss_value, acc = sess.run(
-                [train_op, loss, accuracy])
+            _, loss_value, x_predicted = sess.run(
+                [train_op, loss, tf.reduce_sum(x_hat)])
             duration = time.time() - start_batch
             if step % 10 == 0:             
-                print('Step %d | loss = %.2f | accuracy = %.2f (%.3f sec/batch)')%(
-                step, loss_value, acc, duration)
-            if step % 500 == 0:
-                summary = sess.run(merged_summary_op)
-                summary_writer.add_summary(summary, step*FLAGS.batch_size)
-            #if step % 5000 == 0:
+                print('Step %d | loss = %s | x_hat = %s (%.3f sec/batch)')%(
+                    step, loss_value, x_predicted, duration)
+            #if step % 100 == 0:
+            #    summary = sess.run(merged_summary_op)
+            #    summary_writer.add_summary(summary, step*FLAGS.batch_size)
+            #if step % 50 == 0:
             #    saver.save(sess, FLAGS.model_path)
                                 
             step +=1

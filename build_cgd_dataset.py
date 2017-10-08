@@ -4,9 +4,9 @@ import os
 import glob
 import numpy as np
 
-#dataset = '/root/dataset/cornell_grasping_dataset'
+dataset = '/root/dataset/cornell_grasping_dataset'
 #49
-dataset = '/home/tomi/py/dataset'
+#dataset = '/home/tomi/py/dataset'
 #32
 # If the directory of the current script lies where the out_dir will be
 #output_directory = os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +35,7 @@ def _process_bboxes(name):
     with open(name, 'r') as f:
         bboxes = list(map(
               lambda coordinate: float(coordinate), f.read().strip().split()))
-    #print(bboxes)
+    #print(len(bboxes) % 8)
     return bboxes
 
 def _int64_feature(v):
@@ -76,7 +76,7 @@ def main():
     
     coder = ImageCoder()
     for filename in filenames:
-        bbox = filename[:32]+'cpos.txt'
+        bbox = filename[:49]+'cpos.txt'
         bboxes = _process_bboxes(bbox)
         image_buffer, height, width = _process_image(filename, coder)
         example = _convert_to_example(filename, bboxes, image_buffer, height, width)

@@ -48,9 +48,10 @@ def inference(images):
     w_fc2 = tf.get_variable('w_fc2', [512,512], trainable=FLAGS.trainable)
     b_fc2 = tf.get_variable('b_fc2', initializer=tf.constant(0.1, shape=[512]), trainable=FLAGS.trainable)
     h_fc2 = tf.nn.relu(tf.matmul(h_fc1, w_fc2)+b_fc2)
+    print('h_fc2: '%(h_fc2.get_shape()))    
     
-    w_output = tf.get_variable('w_output', [512, 6], trainable=FLAGS.trainable)
-    b_output = tf.get_variable('b_output', [6])
+    w_output = tf.get_variable('w_output', [512, 5], trainable=FLAGS.trainable)
+    b_output = tf.get_variable('b_output', initializer=tf.constant(0.1, shape=[5]), trainable=FLAGS.trainable)
     output = tf.matmul(h_fc2,w_output)+b_output
-    
+    print('output: %s' %output.get_shape())
     return output
