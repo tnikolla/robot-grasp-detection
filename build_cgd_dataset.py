@@ -10,7 +10,8 @@ dataset = '/root/dataset/cornell_grasping_dataset'
 #32
 # If the directory of the current script lies where the out_dir will be
 #output_directory = os.path.dirname(os.path.abspath(__file__))
-output_filename = 'train-cgd'
+#train_filename = 'train-cgd'
+#validation_filename = 'validation-cgd'
 
 class ImageCoder(object):
     def __init__(self):
@@ -35,7 +36,6 @@ def _process_bboxes(name):
     with open(name, 'r') as f:
         bboxes = list(map(
               lambda coordinate: float(coordinate), f.read().strip().split()))
-    #print(len(bboxes) % 8)
     return bboxes
 
 def _int64_feature(v):
@@ -62,9 +62,12 @@ def _convert_to_example(filename, bboxes, image_buffer, height, width):
     
 def main():
     
-    output_file = os.path.join(dataset, output_filename)
-    print(output_file)
-    writer = tf.python_io.TFRecordWriter(output_file)
+    training_file = os.path.join(dataset, 'train-cgd')
+    validation_file = os.path.join(dataset, 'validate-cgd')
+    print(training_file)
+    print(validation_file)
+    writer_train = tf.python_io.TFRecordWriter(training_file)
+    writer_validate = tf.python_io.TFRecordWriter(training_file)
     
     folders = range(1,11)
     folders = ['0'+str(i) if i<10 else '10' for i in folders]
@@ -74,15 +77,24 @@ def main():
         for name in glob.glob(os.path.join(dataset, i, 'pcd'+i+'*r.png')):
             filenames.append(name)
     
+    np.random.shuffle(filenames)
+    
+    count = 0
     coder = ImageCoder()
     for filename in filenames:
         bbox = filename[:49]+'cpos.txt'
         bboxes = _process_bboxes(bbox)
         image_buffer, height, width = _process_image(filename, coder)
         example = _convert_to_example(filename, bboxes, image_buffer, height, width)
-        writer.write(example.SerializeToString())
+        if count % 5:
+            writer_validate.write(example.SerializeToString())
+        else:
+            writer_train.write(example.SerializeToString())
+        count = count + 1
     
-    writer.close()
+    writer_train.close()
+    writer_validate.close()
+
 
 if __name__ == '__main__':
     main()

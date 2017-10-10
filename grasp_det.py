@@ -43,14 +43,24 @@ def elem(tensor,element):
     bs = FLAGS.batch_size
     return tf.slice(tensor, [0,element], [bs,1])
 
-def bboxes_to_grasps(bboxes):
+'''def bboxes_to_grasps(bboxes):
     x = elem(bboxes, 5) / tf.constant(2.) # check this
     y = elem(bboxes, 4) / tf.constant(2.)
     tan = (elem(bboxes, 3) -elem(bboxes, 1)) / (elem(bboxes, 2) -elem(bboxes, 0))
     h = tf.sqrt(tf.pow(elem(bboxes,6) -elem(bboxes,0), 2) +tf.pow(elem(bboxes, 7) -elem(bboxes, 1),2))
     w = tf.sqrt(tf.pow(elem(bboxes,2) -elem(bboxes,0), 2) +tf.pow(elem(bboxes, 3) -elem(bboxes, 1),2))
-    return x, y, tan, h, w
- 
+    return x, y, tan, h, w'''
+
+def bboxes_to_grasps(bboxes):
+    # converting and scaling
+    box = tf.unstack(bboxes, axis=1)
+    x = (box[0] + (box[4] - box[0])/2) * 0.35
+    y = (box[1] + (box[5] - box[1])/2) * 0.47
+    tan = (box[3] -box[1]) / (box[2] -box[0]) *0.47/0.35
+    h = tf.sqrt(tf.pow((box[2] -box[0])*0.35, 2) + tf.pow((box[3] -box[1])*0.47, 2))
+    w = tf.sqrt(tf.pow((box[6] -box[0])*0.35, 2) + tf.pow((box[7] -box[1])*0.47, 2))
+    return x, y, tan, h, w 
+    
 def run_training():
     #tf.reset_default_graph()
     data_files_ = TRAIN_FILE
@@ -58,12 +68,17 @@ def run_training():
     #data_files_ = data_files()
     images, bboxes = grasp_img_proc.distorted_inputs(
         [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
+    print('images: %s' %images.get_shape())
+    print('bboxes: %s' %bboxes.get_shape())
     # grasp is in the form: g = {x, y, tan(theta), h, w}    
     x, y, tan, h, w = bboxes_to_grasps(bboxes) # list
     x_hat, y_hat, tan_hat, h_hat, w_hat = tf.unstack(inference(images), axis=1) # list
     # tangent of 85 degree is 11 
     tan_hat_confined = tf.minimum(11., tf.maximum(-11., tan_hat))
-    loss = tf.reduce_sum(tf.pow(x_hat -x, 2) +tf.pow(y_hat -y, 2) +tf.pow(tan_hat_confined - tan, 2))
+    tan_confined = tf.minimum(11., tf.maximum(-11., tan))
+    # Loss function
+    gamma = tf.constant(100.)
+    loss = tf.reduce_sum(tf.pow(x_hat -x, 2) +tf.pow(y_hat -y, 2) + gamma*tf.pow(tan_hat_confined - tan_confined, 2) +tf.pow(h_hat -h, 2) +tf.pow(w_hat -w, 2))
     tf.summary.scalar('loss', loss)
     #accuracy = theta# iou #tf.reduce_mean(iou)
     #tf.summary.scalar('accuracy', accuracy)
@@ -76,11 +91,18 @@ def run_training():
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     #save/restore model
-    d={}
-    l = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2']
-    for i in l:
-        d[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
-    saver = tf.train.Saver(d)
+    #d={}
+    #l = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2']
+    #for i in l:
+    #    d[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
+    
+    dg={}
+    lg = ['w1', 'b1', 'w2', 'b2', 'w3', 'b3', 'w4', 'b4', 'w5', 'b5', 'w_fc1', 'b_fc1', 'w_fc2', 'b_fc2', 'w_output', 'b_output']
+    for i in lg:
+        dg[i] = [v for v in tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES) if v.name == i+':0'][0]
+
+    saver = tf.train.Saver(dg)
+    #saver_g = tf.train.Saver(dg)
     saver.restore(sess, FLAGS.model_path)
     try:
         step = 0
@@ -88,19 +110,20 @@ def run_training():
         while not coord.should_stop():
             start_batch = time.time()
             #train             
-            _, loss_value, x_predicted = sess.run(
-                [train_op, loss, tf.reduce_sum(x_hat)])
+            _, loss_value, x_value, x_model, tan_value, tan_model, h_value, h_model, w_value, w_model = sess.run(
+                [train_op, loss, x, x_hat, tan, tan_hat_confined, h, h_hat, w, w_hat])
             duration = time.time() - start_batch
-            if step % 10 == 0:             
-                print('Step %d | loss = %s | x_hat = %s (%.3f sec/batch)')%(
-                    step, loss_value, x_predicted, duration)
+            if step % 100  == 0:             
+                print('Step %d | loss = %s\n | x = %s\n | x_hat = %s\n | tan = %s\n | tan_hat = %s\n | h = %s\n | h_hat = %s\n | w = %s\n | w_hat = %s\n | (%.3f sec/batch\n')%(
+                        step, loss_value, x_value[:3], x_model[:3], tan_value[:3], tan_model[:3], h_value[:3], h_model[:3], w_value[:3], w_model[:3], duration)
             #if step % 100 == 0:
             #    summary = sess.run(merged_summary_op)
             #    summary_writer.add_summary(summary, step*FLAGS.batch_size)
-            #if step % 50 == 0:
-            #    saver.save(sess, FLAGS.model_path)
+            if step % 1000 == 0:
+                saver.save(sess, FLAGS.model_path)
                                 
             step +=1
+            #time.sleep(0.5)
     except tf.errors.OutOfRangeError:
         print('Done training for %d epochs, %d steps, %.1f min.' % (FLAGS.num_epochs, step, (time.time()-start_time)/60))
     finally:
