@@ -1,3 +1,4 @@
+#!/usr/local/bin/python
 import tensorflow as tf
 from itertools import islice
 import os
@@ -62,12 +63,12 @@ def _convert_to_example(filename, bboxes, image_buffer, height, width):
     
 def main():
     
-    training_file = os.path.join(dataset, 'train-cgd')
-    validation_file = os.path.join(dataset, 'validate-cgd')
-    print(training_file)
+    train_file = os.path.join(dataset, 'train-cgd')
+    validation_file = os.path.join(dataset, 'validation-cgd')
+    print(train_file)
     print(validation_file)
-    writer_train = tf.python_io.TFRecordWriter(training_file)
-    writer_validate = tf.python_io.TFRecordWriter(training_file)
+    writer_train = tf.python_io.TFRecordWriter(train_file)
+    writer_validation = tf.python_io.TFRecordWriter(validation_file)
     
     folders = range(1,11)
     folders = ['0'+str(i) if i<10 else '10' for i in folders]
@@ -80,20 +81,24 @@ def main():
     np.random.shuffle(filenames)
     
     count = 0
+    a=0
+    b=0
     coder = ImageCoder()
     for filename in filenames:
         bbox = filename[:49]+'cpos.txt'
         bboxes = _process_bboxes(bbox)
         image_buffer, height, width = _process_image(filename, coder)
         example = _convert_to_example(filename, bboxes, image_buffer, height, width)
-        if count % 5:
-            writer_validate.write(example.SerializeToString())
+        if count % 5 == 0:
+            writer_validation.write(example.SerializeToString())
+            a+=1
         else:
             writer_train.write(example.SerializeToString())
+            b+=1
         count = count + 1
-    
+    print(a, b)
     writer_train.close()
-    writer_validate.close()
+    writer_validation.close()
 
 
 if __name__ == '__main__':

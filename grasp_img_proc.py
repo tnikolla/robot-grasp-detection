@@ -23,13 +23,11 @@ def parse_example_proto(examples_serialized):
         }
     features=tf.parse_single_example(examples_serialized, feature_map)
     bboxes = tf.sparse_tensor_to_dense(features['bboxes'])
-    #print('bboxes: '%(bboxes.get_shape()))
     r = 8*tf.random_uniform((1,), minval=0, maxval=tf.size(bboxes, out_type=tf.int32)/8, dtype=tf.int32)
-    #print('r: '%(r.get_shape()))
     bbox = tf.gather_nd(bboxes, [r,r+1,r+2,r+3,r+4,r+5,r+6,r+7])
-    print('bbox: %s' %bbox.get_shape())
     
     return features['image/encoded'], bbox
+
 
 def eval_image(image, height, width):
     image = tf.image.central_crop(image, central_fraction=0.875)
@@ -37,8 +35,10 @@ def eval_image(image, height, width):
     image = tf.image.resize_bilinear(image, [height, width],
                                      align_corners=False)
     image = tf.squeeze(image, [0])
+ 
     return image
-   
+
+
 def distort_color(image, thread_id):
     color_ordering = thread_id % 2
     if color_ordering == 0:
@@ -52,12 +52,15 @@ def distort_color(image, thread_id):
         image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
         image = tf.image.random_hue(image, max_delta=0.2)
     image = tf.clip_by_value(image, 0.0, 1.0)
+
     return image
+
 
 def distort_image(image, height, width, thread_id):
     distorted_image = tf.image.random_flip_left_right(image)
     distorted_image = distort_color(distorted_image, thread_id)
     return distorted_image
+
 
 def image_preprocessing(image_buffer, train, thread_id=0):
     height = FLAGS.image_size
@@ -67,11 +70,12 @@ def image_preprocessing(image_buffer, train, thread_id=0):
     image = tf.image.resize_images(image, [height,width])
     if train:
         image = distort_image(image, height, width, thread_id)
-    else:
-        image = eval_image(image, height, width)
+    #else:
+    #    image = eval_image(image, height, width)
     image = tf.subtract(image, 0.5)
     image = tf.multiply(image, 2.0)
     return image
+
 
 def batch_inputs(data_files, train, num_epochs, batch_size,
                  num_preprocess_threads, num_readers):
@@ -81,7 +85,8 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
                                                         shuffle=True,
                                                         capacity=16)
     else:
-        filename_queue = tf.train.string_input_producer(ata_files,
+        filename_queue = tf.train.string_input_producer(data_files,
+                                                        num_epochs,
                                                         shuffle=False,
                                                         capacity=1)
     
@@ -110,12 +115,10 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
         reader = tf.TFRecordReader()
         _, examples_serialized = reader.read(filename_queue)
     
-    #check how this works
     images_and_bboxes=[]
     for thread_id in range(num_preprocess_threads):
         image_buffer, bbox = parse_example_proto(examples_serialized)
         image = image_preprocessing(image_buffer, train, thread_id)
-        #bbox = #choose randomly one of the bboxes
         images_and_bboxes.append([image, bbox])
     
     images, bboxes = tf.train.batch_join(
@@ -129,22 +132,25 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
     
     images = tf.cast(images, tf.float32)
     images = tf.reshape(images, shape=[batch_size, height, width, depth])
-    #bboxes = tf.sparse_tensor_to_dense(bboxes, default_value=-1)
-    #tf.Print(bboxes.get_shape().as_list(), message="bboxes: ")
-    #print('bboxes: %s' % bboxes.get_shape().as_list())
+
     return images, bboxes 
+
+
 def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
     with tf.device('/cpu:0'):
         images, bboxes = batch_inputs(
             data_files, train, num_epochs, batch_size,
             num_preprocess_threads=FLAGS.num_preprocess_threads,
             num_readers=FLAGS.num_readers)
+  
     return images, bboxes
 
-def inputs(data_files, batch_size, train=False, num_epochs=None):
+
+def inputs(data_files, batch_size, num_epochs, train=False):
     with tf.device('/cpu:0'):
         images, bboxes = batch_inputs(
             data_files, train, num_epochs, batch_size,
             num_preprocess_threads=FLAGS.num_preprocess_threads,
             num_readers=1)
+    
     return images, bboxes
