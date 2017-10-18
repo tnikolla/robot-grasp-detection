@@ -20,11 +20,11 @@ def data_files():
 
 def run_training():
     #tf.reset_default_graph()
-    #data_files_ = TRAIN_FILE
+    data_files_ = TRAIN_FILE
     #data_files_ = VALIDATION_FILE
-    data_files_ = data_files()
+    #data_files_ = data_files()
     images, labels = image_processing.distorted_inputs(
-        data_files_, FLAGS.num_epochs, batch_size=FLAGS.batch_size)
+        [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
     labels = tf.one_hot(labels, 1000)   
     logits = inference(images)
     loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(

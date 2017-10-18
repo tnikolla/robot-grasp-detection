@@ -84,8 +84,8 @@ def run_training():
                 duration = time.time() - start_batch
                 if step % 100 == 0:             
                     print('Step %d | loss = %s\n | x = %s\n | x_hat = %s\n | tan = %s\n | tan_hat = %s\n | h = %s\n | h_hat = %s\n | w = %s\n | w_hat = %s\n | (%.3f sec/batch\n')%(step, loss_value, x_value[:3], x_model[:3], tan_value[:3], tan_model[:3], h_value[:3], h_model[:3], w_value[:3], w_model[:3], duration)
-                if step % 1000 == 0:
-                    saver_g.save(sess, FLAGS.model_path)
+                #if step % 1000 == 0:
+                #    saver_g.save(sess, FLAGS.model_path)
             else:
                 bbox_hat = grasp_to_bbox(x_hat, y_hat, tan_hat, h_hat, w_hat)
                 bbox_value, bbox_model, tan_value, tan_model = sess.run([bboxes, bbox_hat, tan, tan_hat])

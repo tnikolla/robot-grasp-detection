@@ -17,6 +17,12 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
 def inference(images):
+    if FLAGS.trainable:
+        keep_prob = 0.5
+    else:
+        keep_prob = 1.
+    print('keep_prob = %.1f' %keep_prob)
+
     w1 = tf.get_variable('w1', shape=[5,5,3,64], trainable=FLAGS.trainable)
     b1 = tf.get_variable('b1', initializer=tf.constant(0.1, shape=[64]), trainable=FLAGS.trainable)
     h1 = tf.nn.relu(conv2d_s2(images, w1)+b1)
@@ -44,14 +50,15 @@ def inference(images):
     b_fc1 = tf.get_variable('b_fc1', initializer=tf.constant(0.1, shape=[512]), trainable=FLAGS.trainable)
     h5_flat = tf.reshape(h5_pool, [-1, 7*7*256])
     h_fc1 = tf.nn.relu(tf.matmul(h5_flat,w_fc1)+b_fc1)
-    
+    h_fc1_dropout = tf.nn.dropout(h_fc1, keep_prob)
+
     w_fc2 = tf.get_variable('w_fc2', [512,512], trainable=FLAGS.trainable)
     b_fc2 = tf.get_variable('b_fc2', initializer=tf.constant(0.1, shape=[512]), trainable=FLAGS.trainable)
-    h_fc2 = tf.nn.relu(tf.matmul(h_fc1, w_fc2)+b_fc2)
-    print('h_fc2: '%(h_fc2.get_shape()))    
-    
+    h_fc2 = tf.nn.relu(tf.matmul(h_fc1_dropout, w_fc2)+b_fc2)
+    h_fc2_dropout = tf.nn.dropout(h_fc2, keep_prob)
+
     w_output = tf.get_variable('w_output', [512, 5], trainable=FLAGS.trainable)
     b_output = tf.get_variable('b_output', initializer=tf.constant(0.1, shape=[5]), trainable=FLAGS.trainable)
-    output = tf.matmul(h_fc2,w_output)+b_output
-    print('output: %s' %output.get_shape())
+    output = tf.matmul(h_fc2_dropout, w_output)+b_output
+    
     return output
