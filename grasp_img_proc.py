@@ -146,7 +146,7 @@ def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
     return images, bboxes
 
 
-def inputs(data_files, batch_size, num_epochs, train=False):
+def inputs(data_files, num_epochs, train=False, batch_size=None):
     with tf.device('/cpu:0'):
         images, bboxes = batch_inputs(
             data_files, train, num_epochs, batch_size,

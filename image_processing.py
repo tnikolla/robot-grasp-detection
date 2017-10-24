@@ -78,7 +78,8 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
                                                         shuffle=True,
                                                         capacity=16)
     else:
-        filename_queue = tf.train.string_input_producer(ata_files,
+        filename_queue = tf.train.string_input_producer(data_files,
+                                                        num_epochs,
                                                         shuffle=False,
                                                         capacity=1)
     
@@ -136,7 +137,7 @@ def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
             num_readers=FLAGS.num_readers)
     return images, labels
 
-def inputs(data_files, batch_size, train=False, num_epochs=None):
+def inputs(data_files, num_epochs=None, train=False, batch_size=None):
     with tf.device('/cpu:0'):
         images, labels = batch_inputs(
             data_files, train, num_epochs, batch_size,
