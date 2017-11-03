@@ -13,11 +13,6 @@ import glob
 import numpy as np
 
 dataset = '/root/dataset/cornell_grasping_dataset'
-#49
-#dataset = '/home/tomi/py/dataset'
-#32
-#train_filename = 'train-cgd'
-#validation_filename = 'validation-cgd'
 
 class ImageCoder(object):
     def __init__(self):
@@ -97,7 +92,7 @@ def main():
 
     coder = ImageCoder()
     for filename in filenames:
-        bbox = filename[:49]+'cpos.txt'
+        bbox = filename[:-5]+'cpos.txt'
         bboxes = _process_bboxes(bbox)
         image_buffer, height, width = _process_image(filename, coder)
         example = _convert_to_example(filename, bboxes, image_buffer, height, width)
@@ -110,7 +105,7 @@ def main():
             train_img +=1
         count +=1
     
-    print('Done converting %d images in TFRecords with %d train images and %d validation images' % (count, train_img, valid_img)))
+    print('Done converting %d images in TFRecords with %d train images and %d validation images' % (count, train_img, valid_img))
     
     writer_train.close()
     writer_validation.close()
