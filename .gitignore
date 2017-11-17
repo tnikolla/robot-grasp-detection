@@ -1,9 +1,3 @@
 *.pyc
 *.out
-models/*
-!models/imagenet/m2/*
-!models/grasp/m4/*
 logdir/*
-#checkpoint
-#*.ckpt.*
-
