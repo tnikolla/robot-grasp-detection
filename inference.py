@@ -4,7 +4,7 @@ Inference model for grasping
 import tensorflow as tf
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_bool('trainable', True,
+tf.app.flags.DEFINE_bool('trainable', False,
                             """Computes or not gradients for learning.""")
 
 def conv2d_s2(x, W):

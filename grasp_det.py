@@ -35,14 +35,16 @@ def grasp_to_bbox(x, y, tan, h, w):
     return [edge1, edge2, edge3, edge4]
 
 def run_training():
-    if FLAGS.train == 'true':
+    print(FLAGS.train_or_validation)
+    if FLAGS.train_or_validation == 'train':
+        print('distorted_inputs')
         data_files_ = TRAIN_FILE
         images, bboxes = grasp_img_proc.distorted_inputs(
                   [data_files_], FLAGS.num_epochs, batch_size=FLAGS.batch_size)
     else:
+        print('inputs')
         data_files_ = VALIDATE_FILE
-        images, bboxes = grasp_img_proc.inputs(
-                  [data_files_], FLAGS.batch_size, FLAGS.num_epochs)
+        images, bboxes = grasp_img_proc.inputs([data_files_])
     
     x, y, tan, h, w = bboxes_to_grasps(bboxes)
     x_hat, y_hat, tan_hat, h_hat, w_hat = tf.unstack(inference(images), axis=1) # list
@@ -71,6 +73,7 @@ def run_training():
 
     saver = tf.train.Saver(d)
     saver_g = tf.train.Saver(dg)
+    #saver.restore(sess, "/root/grasp/grasp-detection/models/imagenet/m2/m2.ckpt")
     saver_g.restore(sess, FLAGS.model_path)
     try:
         count = 0
@@ -79,13 +82,13 @@ def run_training():
         while not coord.should_stop():
             start_batch = time.time()
             #train
-            if FLAGS.train == 'true':
+            if FLAGS.train_or_validation == 'train':
                 _, loss_value, x_value, x_model, tan_value, tan_model, h_value, h_model, w_value, w_model = sess.run([train_op, loss, x, x_hat, tan, tan_hat, h, h_hat, w, w_hat])
                 duration = time.time() - start_batch
                 if step % 100 == 0:             
                     print('Step %d | loss = %s\n | x = %s\n | x_hat = %s\n | tan = %s\n | tan_hat = %s\n | h = %s\n | h_hat = %s\n | w = %s\n | w_hat = %s\n | (%.3f sec/batch\n')%(step, loss_value, x_value[:3], x_model[:3], tan_value[:3], tan_model[:3], h_value[:3], h_model[:3], w_value[:3], w_model[:3], duration)
-                #if step % 1000 == 0:
-                #    saver_g.save(sess, FLAGS.model_path)
+                if step % 1000 == 0:
+                    saver_g.save(sess, FLAGS.model_path)
             else:
                 bbox_hat = grasp_to_bbox(x_hat, y_hat, tan_hat, h_hat, w_hat)
                 bbox_value, bbox_model, tan_value, tan_model = sess.run([bboxes, bbox_hat, tan, tan_hat])
@@ -96,7 +99,7 @@ def run_training():
                 iou = p1.intersection(p2).area / (p1.area +p2.area -p1.intersection(p2).area) 
                 angle_diff = np.abs(np.arctan(tan_model)*180/np.pi -np.arctan(tan_value)*180/np.pi)
                 duration = time.time() -start_batch
-                if angle_diff < 30. and iou >= 0.3:
+                if angle_diff < 30. and iou >= 0.25:
                     count+=1
                     print('image: %d | duration = %.2f | count = %d | iou = %.2f | angle_difference = %.2f' %(step, duration, count, iou, angle_diff))
             step +=1
@@ -150,9 +153,9 @@ if __name__ == '__main__':
         help='Variables for the model.'
     )
     parser.add_argument(
-        '--train',
+        '--train_or_validation',
         type=str,
-        default='true',
+        default='validation',
         help='Train or evaluate the dataset'
     )
     FLAGS, unparsed = parser.parse_known_args()

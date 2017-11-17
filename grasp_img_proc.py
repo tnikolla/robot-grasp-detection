@@ -79,6 +79,7 @@ def image_preprocessing(image_buffer, train, thread_id=0):
 
 def batch_inputs(data_files, train, num_epochs, batch_size,
                  num_preprocess_threads, num_readers):
+    print(train)
     if train:
         filename_queue = tf.train.string_input_producer(data_files,
                                                         num_epochs,
@@ -93,6 +94,7 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
     examples_per_shard = 1024
     min_queue_examples = examples_per_shard * FLAGS.input_queue_memory_factor
     if train:
+        print('pass')
         examples_queue = tf.RandomShuffleQueue(
             capacity=min_queue_examples+3*batch_size,
             min_after_dequeue=min_queue_examples,
@@ -138,6 +140,7 @@ def batch_inputs(data_files, train, num_epochs, batch_size,
 
 def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
     with tf.device('/cpu:0'):
+        print(train)
         images, bboxes = batch_inputs(
             data_files, train, num_epochs, batch_size,
             num_preprocess_threads=FLAGS.num_preprocess_threads,
@@ -146,8 +149,9 @@ def distorted_inputs(data_files, num_epochs, train=True, batch_size=None):
     return images, bboxes
 
 
-def inputs(data_files, num_epochs, train=False, batch_size=None):
+def inputs(data_files, num_epochs=1, train=False, batch_size=1):
     with tf.device('/cpu:0'):
+        print(train)
         images, bboxes = batch_inputs(
             data_files, train, num_epochs, batch_size,
             num_preprocess_threads=FLAGS.num_preprocess_threads,

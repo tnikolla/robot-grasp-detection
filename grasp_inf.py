@@ -18,7 +18,7 @@ def max_pool_2x2(x):
 
 def inference(images):
     if FLAGS.trainable:
-        keep_prob = 0.5
+        keep_prob = 1. 
     else:
         keep_prob = 1.
     print('keep_prob = %.1f' %keep_prob)
