@@ -1,6 +1,6 @@
 # Detecting grasping positions with deep neural networks using RGB images
 
-_(I will upload the trained model in a few days. You can train better yourself if you have the time and the machine or if you are learning Tensorflow/ML. Please bear in mind that you need to read and adapt to your needs some parts of the code. Feel free to open an issue if you need help. I will try to update README and comment the code.)_
+_(The model is uploaded but you can train better yourself if you have the time and the machine or if you are learning Tensorflow/ML. Please bear in mind that you need to read and adapt to your needs some parts of the code. Feel free to open an issue if you need help. I will try to update README and comment the code.)_
 
 This implementation is mainly based on the algorithm from Redmon and Angelova described in [arXiv:1412.3128v2](https://arxiv.org/abs/1412.3128).
 
